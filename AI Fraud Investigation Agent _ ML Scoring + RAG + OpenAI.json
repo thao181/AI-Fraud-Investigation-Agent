@@ -1,0 +1,771 @@
+{
+  "name": "AI Fraud Investigation Agent | ML Scoring + RAG + OpenAI",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "# AI Fraud Investigation Agent\n\n**Purpose:** Screen card transactions with an external ML risk-scoring API, investigate only elevated-risk cases with an OpenAI agent, ground recommendations in a RAG policy knowledge base, and preserve human oversight.\n\n### How to run the workflow\n1. Add credentials to **Create OpenAI Embeddings**, **OpenAI Reasoning Model**, **Email High-Risk Alert**, and **Log Case in Google Sheets**.\n2. Run **Run Knowledge Base Setup** once to index the demo fraud policies.\n3. Test with **Manual Test Data**, or send a POST request to the URL shown in **Transaction Intake Webhook**.\n4. Review the risk score, AI investigation, policy references, recommended action, audit log, and webhook response.\n\n> **Portfolio demo only:** The policies are synthetic, the vector store is temporary, and every customer-impacting decision requires authorised human review.",
+        "height": 380,
+        "width": 3300,
+        "color": 5
+      },
+      "id": "349a94a2-dae9-4776-9ead-8915d915f228",
+      "name": "Workflow Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        272,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1 · Build the RAG Knowledge Base\n\nThis setup branch creates synthetic fraud-policy documents, loads their text and metadata, converts them into OpenAI embeddings, and stores the vectors under the key `fraud_policy_kb`.\n\n**Run this branch once after importing the workflow.** Because the demo uses an in-memory vector store, you may need to run it again after the n8n instance restarts. For production, replace the generated documents and in-memory store with approved policy files and a persistent vector database.",
+        "height": 700,
+        "width": 1480,
+        "color": 4
+      },
+      "id": "2343474b-469a-4bf0-ba15-5fd50e218f3a",
+      "name": "Knowledge Base Guide",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        272,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2 · Screen Incoming Transactions\n\nUse either input path:\n- **Transaction Intake Webhook** receives a POST request from another system.\n- **Manual Test Data** provides a ready-to-run high-risk example for development.\n\nThe transaction is sent to the deployed ML API. The decision node then applies a transparent escalation threshold:\n\n- **True — score ≥ 60:** continue to the AI investigation branch.\n- **False — score < 60:** skip the AI agent and create a standard monitoring result.",
+        "height": 900,
+        "width": 1120,
+        "color": 6
+      },
+      "id": "e444b434-9c7d-401c-a395-6a9fcc0cbe8b",
+      "name": "Transaction Screening Guide",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        272,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3 · Investigate Elevated-Risk Cases\n\nThe case builder keeps the evidence structured. The AI agent must search the fraud-policy knowledge base before making policy-based recommendations, return auditable JSON, and request human review. The model and RAG search nodes are shown directly below the agent.\n\nOnly the high-risk branch sends an email alert.",
+        "height": 900,
+        "width": 1400,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        1200
+      ],
+      "id": "2293be10-0e5f-4125-9b44-65a67fbf83a4",
+      "name": "AI Investigation Guide"
+    },
+    {
+      "parameters": {
+        "content": "## 4 · Alert, Log, and Respond\n\n- **High-risk cases:** email the fraud team and append the case to Google Sheets.\n- **Lower-risk cases:** append the monitoring result to Google Sheets without calling the AI agent.\n- **API calls:** return the final workflow result through the webhook response node after logging.\n\nGoogle Sheets acts as a simple demo audit trail. Replace it with an approved case-management platform for production use.",
+        "height": 900,
+        "width": 1040,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2880,
+        1200
+      ],
+      "id": "52211565-bb05-4fa9-ac75-c4313bd6bf7b",
+      "name": "Audit and Response Guide"
+    },
+    {
+      "parameters": {
+        "content": "### Sample POST body\n\nCopy the test or production URL directly from **Transaction Intake Webhook**, then send this JSON body:\n\n```json\n{\n  \"transaction_id\": \"TXN-20260901-0001\",\n  \"customer_id\": \"CUST-2048\",\n  \"card_id\": \"CARD-9981\",\n  \"amount\": 2840,\n  \"currency\": \"AUD\",\n  \"merchant\": \"QuickCash Digital Market\",\n  \"merchant_category\": \"Money Transfer\",\n  \"merchant_country\": \"SG\",\n  \"customer_country\": \"AU\",\n  \"location\": \"Singapore\",\n  \"timestamp\": \"2026-09-01T02:13:00Z\",\n  \"transaction_hour\": 2,\n  \"customer_avg_transaction_amount\": 145,\n  \"is_new_merchant\": true,\n  \"card_not_present\": true,\n  \"merchant_risk_score\": 76,\n  \"transactions_last_24h\": 7,\n  \"recent_failed_attempts\": 2,\n  \"customer_history_summary\": \"Customer normally spends under 200 AUD within Australia. No prior transactions with Singapore-based merchants.\"\n}\n```\n\nThis example is intentionally high risk and should exceed the score threshold, triggering the AI + RAG investigation.",
+        "height": 940,
+        "width": 1120,
+        "color": 3
+      },
+      "id": "f1cd642a-eab1-4389-93d9-f178a1414c8c",
+      "name": "Sample API Payload",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        272,
+        2208
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "0d13413a-3cc7-452e-9a63-74271db1dc05",
+      "name": "Run Knowledge Base Setup",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        512,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const policies = [\n  {\n    source: \"DEMO - Card Fraud Investigation Standard\",\n    section: \"2.1 Transaction Triage\",\n    policy_text: `DEMO POLICY - NOT A REAL BANK POLICY.\nSection 2.1 Transaction Triage\nWhen a card transaction is flagged as potentially suspicious, investigators should review the amount relative to the customer's normal spend, transaction location, merchant familiarity, time of transaction, recent transaction velocity, authentication context and available merchant risk indicators. A single indicator should not normally be treated as conclusive evidence of fraud; decisions should weigh the combined evidence.`\n  },\n  {\n    source: \"DEMO - Card Fraud Investigation Standard\",\n    section: \"3.2 Customer Verification\",\n    policy_text: `DEMO POLICY - NOT A REAL BANK POLICY.\nSection 3.2 Customer Verification\nFor higher-risk cases, the recommended response is to verify the transaction with the customer via an approved contact channel, without disclosing unnecessary sensitive information. If the customer confirms the transaction, record the verification outcome. If the customer denies it, escalate according to the card fraud handling process.`\n  },\n  {\n    source: \"DEMO - Card Fraud Investigation Standard\",\n    section: \"4.1 Temporary Restrictions\",\n    policy_text: `DEMO POLICY - NOT A REAL BANK POLICY.\nSection 4.1 Temporary Restrictions\nA temporary card restriction may be recommended when multiple high-risk indicators are present and customer verification cannot be completed promptly. Any restriction affecting a customer must follow the organisation's approved authorisation process. An AI assistant may recommend a review or restriction but must not independently execute a customer-impacting action.`\n  },\n  {\n    source: \"DEMO - Fraud Operations Escalation Guide\",\n    section: \"5.3 Escalation Criteria\",\n    policy_text: `DEMO POLICY - NOT A REAL BANK POLICY.\nSection 5.3 Escalation Criteria\nEscalate a case for manual fraud review when there is strong evidence of account compromise, repeated suspicious activity, customer denial of a transaction, materially elevated merchant risk, or insufficient information to reach a reliable conclusion. The case record should include the key risk indicators, evidence reviewed, relevant policy references and the recommended next action.`\n  },\n  {\n    source: \"DEMO - Responsible AI for Fraud Operations\",\n    section: \"1.4 Human Oversight\",\n    policy_text: `DEMO POLICY - NOT A REAL BANK POLICY.\nSection 1.4 Human Oversight\nAI-generated fraud investigation summaries and recommendations are decision-support outputs only. Final decisions that may block a card, decline service, contact a customer, lodge a fraud outcome or otherwise materially affect a customer require appropriate human review and must follow authorised operational procedures.`\n  }\n];\nreturn policies.map(p => ({ json: p }));"
+      },
+      "id": "62f011f5-fc3f-4c0c-8e97-7f5381fb2444",
+      "name": "Generate Demo Policy Documents",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.policy_text }}",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "source",
+                "value": "={{ $json.source }}"
+              },
+              {
+                "name": "section",
+                "value": "={{ $json.section }}"
+              },
+              {
+                "name": "document_type",
+                "value": "demo_fraud_policy"
+              }
+            ]
+          }
+        }
+      },
+      "id": "299dd702-2836-4393-b104-00e26bf1732e",
+      "name": "Load Policy Text & Metadata",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        928
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "531d1c27-03d1-4d8e-8417-ea3a0afa68f1",
+      "name": "Create OpenAI Embeddings",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1440,
+        928
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "8QmnpsKUVeHfVeAc",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "memoryKey": {
+          "__rl": true,
+          "value": "fraud_policy_kb",
+          "mode": "id"
+        },
+        "embeddingBatchSize": 100,
+        "clearStore": true
+      },
+      "id": "7c9da09f-25d1-4579-8926-65c3ebb8b1ed",
+      "name": "Index Fraud Policy Documents",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.3,
+      "position": [
+        1200,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Search the internal fraud operations policy knowledge base for investigation procedures, customer verification guidance, temporary restriction guidance, escalation criteria and human-oversight requirements. Policy claims must be grounded in retrieved documents.",
+        "memoryKey": {
+          "__rl": true,
+          "value": "fraud_policy_kb",
+          "mode": "id"
+        }
+      },
+      "id": "8702bbd1-d0ec-4892-841a-e8fe6c7a23ef",
+      "name": "Search Fraud Policy Knowledge Base",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.3,
+      "position": [
+        2080,
+        1696
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"body\": {\n    \"transaction_id\": \"TXN-20260901-0001\",\n    \"customer_id\": \"CUST-2048\",\n    \"card_id\": \"CARD-9981\",\n    \"amount\": 2840,\n    \"currency\": \"AUD\",\n    \"merchant\": \"QuickCash Digital Market\",\n    \"merchant_category\": \"Money Transfer\",\n    \"merchant_country\": \"SG\",\n    \"customer_country\": \"AU\",\n    \"location\": \"Singapore\",\n    \"timestamp\": \"2026-09-01T02:13:00Z\",\n    \"transaction_hour\": 2,\n    \"customer_avg_transaction_amount\": 145,\n    \"is_new_merchant\": true,\n    \"card_not_present\": true,\n    \"merchant_risk_score\": 76,\n    \"transactions_last_24h\": 7,\n    \"recent_failed_attempts\": 2,\n    \"customer_history_summary\": \"Customer normally spends under 200 AUD within Australia. No prior transactions with Singapore-based merchants.\"\n  }\n}",
+        "options": {}
+      },
+      "id": "ffbf6af9-3189-461f-ac02-3634d5252613",
+      "name": "Manual Test Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        512,
+        1696
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fraud-investigation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "9e0006fb-0f44-400c-aedf-f69b4ca4acb7",
+      "name": "Transaction Intake Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        512,
+        1456
+      ],
+      "webhookId": "fraud-investigation-webhook"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://fraud-transaction-detection-btq8.onrender.com/predict",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body ?? $json }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "0cbb4fbc-d4fe-4d85-85b3-9a2659329814",
+      "name": "Score Transaction Risk (ML API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        864,
+        1568
+      ],
+      "notes": "Goi API FastAPI boc model XGBoost da train (xem thu muc fraud_model/). Thay REPLACE_WITH_YOUR_MODEL_API_URL bang URL that sau khi deploy (Render/Railway/Cloud Run)."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "risk-cond-1",
+              "leftValue": "={{ $json.risk_score }}",
+              "rightValue": 60,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f267af37-14b8-4810-af71-ec09d80a2c9a",
+      "name": "Is Risk Score 60 or Higher?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1216,
+        1568
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const c = $json;\nconst casePayload = {\n  transaction_id: c.transaction_id,\n  customer_id: c.customer_id,\n  card_id: c.card_id,\n  amount: c.amount,\n  currency: c.currency,\n  merchant: c.merchant,\n  merchant_category: c.merchant_category ?? null,\n  merchant_country: c.merchant_country,\n  customer_country: c.customer_country,\n  location: c.location ?? null,\n  timestamp: c.timestamp ?? null,\n  transaction_hour: c.transaction_hour ?? null,\n  customer_avg_transaction_amount: c.customer_avg_transaction_amount ?? null,\n  amount_to_average_ratio: c.amount_to_average_ratio,\n  is_new_merchant: c.is_new_merchant ?? false,\n  card_not_present: c.card_not_present ?? false,\n  merchant_risk_score: c.merchant_risk_score ?? null,\n  transactions_last_24h: c.transactions_last_24h ?? null,\n  recent_failed_attempts: c.recent_failed_attempts ?? null,\n  customer_history_summary: c.customer_history_summary ?? null,\n  risk_score: c.risk_score,\n  risk_level: c.risk_level,\n  risk_indicators: c.risk_indicators\n};\n\nconst investigationPrompt = `Investigate this flagged card transaction.\n\nCASE DATA:\n${JSON.stringify(casePayload, null, 2)}\n\nYou MUST call the search_fraud_policy tool before making any policy-based recommendation. Use only policy text returned by that tool for policy claims. If policy evidence is insufficient, say so and recommend manual review. Return valid JSON only.`;\n\nreturn [{ json: { ...c, investigation_prompt: investigationPrompt } }];"
+      },
+      "id": "a10dfcef-9661-44de-9fae-6f03d7fee29a",
+      "name": "Prepare AI Investigation Case",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.investigation_prompt }}",
+        "options": {
+          "systemMessage": "You are Fraud Investigation Copilot, a decision-support AI for a Cards Fraud and Scams team.\n\nYour job is to investigate a transaction that has already been flagged by a prototype rule-based risk-scoring step.\n\nMANDATORY RULES:\n1. Always call the tool named search_fraud_policy before making any policy-based recommendation.\n2. Treat the supplied case data as evidence. Do not invent customer, merchant, device or transaction facts.\n3. Treat retrieved policy documents as the only source of policy. Never invent a policy section or requirement.\n4. If the knowledge base does not provide enough policy context, explicitly set policy_sufficiency to INSUFFICIENT and recommend MANUAL_REVIEW.\n5. You are decision support only. Never claim to have blocked a card, contacted a customer, declined a payment, opened a formal fraud case or completed any customer-impacting action.\n6. Any customer-impacting action requires human review.\n7. Be concise, evidence-based and auditable.\n\nReturn VALID JSON ONLY with exactly this structure:\n{\n  \"status\": \"INVESTIGATED\",\n  \"case_assessment\": \"SUSPICIOUS|INCONCLUSIVE|LOWER_CONCERN\",\n  \"summary\": \"short investigation summary\",\n  \"key_evidence\": [\"evidence 1\", \"evidence 2\"],\n  \"policy_sufficiency\": \"SUFFICIENT|INSUFFICIENT\",\n  \"policy_references\": [\n    {\"source\": \"document name\", \"section\": \"section\", \"applied_guidance\": \"brief paraphrase\"}\n  ],\n  \"recommended_action\": \"MANUAL_REVIEW|CUSTOMER_VERIFICATION|CONSIDER_TEMPORARY_RESTRICTION|CONTINUE_MONITORING\",\n  \"recommended_next_steps\": [\"step 1\", \"step 2\"],\n  \"confidence\": \"HIGH|MEDIUM|LOW\",\n  \"human_review_required\": true\n}",
+          "maxIterations": 6,
+          "returnIntermediateSteps": false
+        }
+      },
+      "id": "96e85769-59ad-49e7-8636-a6c8fa777b65",
+      "name": "AI Fraud Investigation Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1920,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const base = $('Prepare AI Investigation Case').item.json;\nlet raw = $json.output ?? $json.text ?? $json;\nlet parsed = null;\n\nif (typeof raw === 'object' && raw !== null) {\n  parsed = raw;\n} else {\n  const cleaned = String(raw).replace(/```json/gi, '').replace(/```/g, '').trim();\n  try { parsed = JSON.parse(cleaned); } catch (e) { parsed = null; }\n}\n\nreturn [{\n  json: {\n    transaction_id: base.transaction_id,\n    customer_id: base.customer_id,\n    amount: base.amount,\n    currency: base.currency,\n    merchant: base.merchant,\n    timestamp: base.timestamp ?? null,\n    fraud_risk: {\n      score: base.risk_score,\n      level: base.risk_level,\n      indicators: base.risk_indicators,\n      scoring_version: base.scoring_version\n    },\n    investigation: parsed ?? {\n      status: 'AI_OUTPUT_PARSE_FAILED',\n      raw_output: typeof raw === 'string' ? raw : JSON.stringify(raw),\n      recommended_action: 'MANUAL_REVIEW'\n    },\n    final_decision: 'HUMAN_REVIEW_REQUIRED',\n    demo_disclaimer: 'Portfolio/demo workflow only. Not a production fraud decisioning system.'\n  }\n}];"
+      },
+      "id": "c9622417-9068-43b7-9887-9e71e917526e",
+      "name": "Format High-Risk Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2256,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const c = $json;\nreturn [{\n  json: {\n    transaction_id: c.transaction_id,\n    customer_id: c.customer_id,\n    amount: c.amount,\n    currency: c.currency,\n    merchant: c.merchant,\n    timestamp: c.timestamp ?? null,\n    fraud_risk: {\n      score: c.risk_score,\n      level: c.risk_level,\n      indicators: c.risk_indicators,\n      scoring_version: c.scoring_version\n    },\n    investigation: {\n      status: 'NOT_ESCALATED_TO_AI_AGENT',\n      reason: 'Prototype risk score is below the investigation threshold of 60.',\n      recommended_action: 'CONTINUE_STANDARD_MONITORING'\n    },\n    final_decision: 'NO_AUTOMATED_CUSTOMER_ACTION',\n    demo_disclaimer: 'Portfolio/demo workflow only. Not a production fraud decisioning system.'\n  }\n}];"
+      },
+      "id": "d32e07bd-24da-448a-9392-a37c6e7d2d4d",
+      "name": "Format Low-Risk Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        1856
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1cYMRD3yC9W3Qz1hIFZUw7QFMzl3SfMMsNH1aDlhWngY",
+          "mode": "list",
+          "cachedResultName": "Fraud Transaction",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1cYMRD3yC9W3Qz1hIFZUw7QFMzl3SfMMsNH1aDlhWngY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Transaction",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "transaction_id": "={{ $json.transaction_id }}",
+            "customer_id": "={{ $json.customer_id }}",
+            "amount": "={{ $json.amount }}",
+            "merchant": "={{ $json.merchant }}",
+            "currency": "={{ $json.currency }}",
+            "timestamp": "={{ $json.timestamp }}",
+            "fraud_risk": "={{ $json.fraud_risk.level }}",
+            "investigation": "={{ $json.investigation.summary ?? $json.investigation.reason }}",
+            "final_decision": "={{ $json.final_decision }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "transaction_id",
+              "displayName": "transaction_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "amount",
+              "displayName": "amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "currency",
+              "displayName": "currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "merchant",
+              "displayName": "merchant",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "fraud_risk",
+              "displayName": "fraud_risk",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "investigation",
+              "displayName": "investigation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "final_decision",
+              "displayName": "final_decision",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "demo_disclaimer",
+              "displayName": "demo_disclaimer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "248ce178-05d7-4952-97fe-9cc7c6fced8b",
+      "name": "Log Case in Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2960,
+        1568
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "0UyTmjeqylZSdoOh",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "071b386f-fedd-4cbc-aa3e-20841d238f6c",
+      "name": "Return API Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        3344,
+        1568
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini",
+          "cachedResultName": "gpt-5-mini",
+          "cachedResultUrl": ""
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1792,
+        1696
+      ],
+      "id": "1d402379-b333-42e7-8da4-577aadb6c525",
+      "name": "OpenAI Reasoning Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "8QmnpsKUVeHfVeAc",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "mle1812000@gmail.com",
+        "subject": "=High-Risk Fraud Case | {{ $json.transaction_id }}",
+        "emailType": "text",
+        "message": "=HIGH-RISK FRAUD CASE\n\nTransaction ID: {{ $json.transaction_id }}\nCustomer ID: {{ $json.customer_id }}\nAmount: {{ $json.amount }} {{ $json.currency }}\nMerchant: {{ $json.merchant }}\nRisk Score: {{ $json.fraud_risk.score }}\nRisk Level: {{ $json.fraud_risk.level }}\nAssessment: {{ $json.investigation.case_assessment }}\n\nAI Investigation Summary:\n{{ $json.investigation.summary }}\n\nRecommended Action: {{ $json.investigation.recommended_action }}\nHuman Review Required: YES\n\nThis alert was generated by a portfolio/demo workflow. Review the case before taking any customer-impacting action.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2624,
+        1360
+      ],
+      "id": "370d25c7-c64b-44fd-831d-b758d331490c",
+      "name": "Email High-Risk Alert",
+      "webhookId": "5d44026a-176a-4c0c-bbee-3e92dfc51d5d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "POTParRfSvgh1Rjv",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Run Knowledge Base Setup": {
+      "main": [
+        [
+          {
+            "node": "Generate Demo Policy Documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Demo Policy Documents": {
+      "main": [
+        [
+          {
+            "node": "Index Fraud Policy Documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Policy Text & Metadata": {
+      "ai_document": [
+        [
+          {
+            "node": "Index Fraud Policy Documents",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create OpenAI Embeddings": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Index Fraud Policy Documents",
+            "type": "ai_embedding",
+            "index": 0
+          },
+          {
+            "node": "Search Fraud Policy Knowledge Base",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Test Data": {
+      "main": [
+        [
+          {
+            "node": "Score Transaction Risk (ML API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transaction Intake Webhook": {
+      "main": [
+        [
+          {
+            "node": "Score Transaction Risk (ML API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score Transaction Risk (ML API)": {
+      "main": [
+        [
+          {
+            "node": "Is Risk Score 60 or Higher?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Risk Score 60 or Higher?": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Investigation Case",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Low-Risk Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Investigation Case": {
+      "main": [
+        [
+          {
+            "node": "AI Fraud Investigation Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Fraud Policy Knowledge Base": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Fraud Investigation Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Fraud Investigation Agent": {
+      "main": [
+        [
+          {
+            "node": "Format High-Risk Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format High-Risk Result": {
+      "main": [
+        [
+          {
+            "node": "Email High-Risk Alert",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Case in Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Low-Risk Result": {
+      "main": [
+        [
+          {
+            "node": "Log Case in Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Case in Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Return API Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Reasoning Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Fraud Investigation Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "e86dbc02-711b-44e6-9ef3-1163ed156442",
+  "meta": {
+    "instanceId": "ce41bab215ec6b31bf6f616253a08d0ffef900a4e1bf518aafc9f468b98f26ab"
+  },
+  "nodeGroups": [],
+  "id": "0FdixmWjuper9IHq",
+  "tags": []
+}
